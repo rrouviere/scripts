@@ -64,22 +64,24 @@ function release_vip() {
 # ${VIP} VIP to takeover
 # ${INTERFACE} Interface
 function takeover_vip() {
-	if (ip addr add "${1}" dev "${INTERFACE}" 2>&1 >/dev/null); then
-		printf "$(tput setaf 1) Cannot configure the VIP. Takeover failed.$(tput sgr0)\n"
-		return 1;
+	ip addr add "${1}" dev "${INTERFACE}" 2>/dev/null
+	if [[ "$?" != "0" && "$?" != "2" ]]; then
+		printf "$(tput setaf 1)Cannot configure the VIP. Takeover failed.$(tput sgr0)\n\n"
+		return 1
 	fi
+	return 0
 }
 
 
 function leader() {
 	printf "$(tput setaf 2)Sending update to invalidate caches on LAN (GARP)$(tput sgr0)\n"
-	arping -c1 -U "${VIP}" -i "${INTERFACE}" 2>&1 >/dev/null
+	arping -c1 -U "${VIP}" -i "${INTERFACE}" >/dev/null 2>&1
 	printf "$(tput bold)[LEADER]: $(tput setaf 2)Successfully taken over the VIP.$(tput sgr0)\n"
 	
 	printf "Checking for duplicate ARP answers..."
 	while true; do
-		arping -d "${VIP}" -i "${INTERFACE}" 2>&1 >/dev/null
-		if [ "$?" -ne 0 ]; then
+		arping -d "${VIP}" -i "${INTERFACE}" >/dev/null 2>&1
+		if [ "$?" -ne "0" ]; then
 			break;
 		else
 			printf "$(tput el1)\r"	
@@ -101,15 +103,18 @@ FAILURE_COUNT=0
 function follower() {
 	while true; do
 		# Check if VIP is reachable 
-		arping -c "${TIMEOUT_COUNT}" -W "${TIMEOUT}" -i "${INTERFACE}" "${VIP}" 2>&1 >/dev/null
-		if [ "$?" -ne 0 ]; then
-			printf "ARP request failed.\n"
+		arping -c "${TIMEOUT_COUNT}" -W "${TIMEOUT}" -i "${INTERFACE}" "${VIP}" >/dev/null 2>&1
+		if [ "$?" -ne "0" ]; then
+			printf "$(tput setaf 3)ARP request failed.$(tput sgr0)\n"
 			FAILURE_COUNT=$FAILURE_COUNT+1
 			if [ "$FAILURE_COUNT" -ge "$TIMEOUT_COUNT" ]; then
-				printf "$(tput setaf 2; tput bold)Taking over the VIP.\n$(tput sgr0)"
+				printf "\n$(tput setaf 2; tput bold)Taking over the VIP.\n$(tput sgr0)"
 				takeover_vip "${VIP}" "${INTERFACE}"
-				FAILURE_COUNT=0
-				break;
+				if [ "$?" -ne "0" ]; then
+					continue;
+				fi
+					FAILURE_COUNT=0
+					break;
 			else
 				printf "Retrying...$(tput sgr0)"
 			fi
@@ -142,3 +147,4 @@ while true; do
 	follower
 	leader
 done
+
