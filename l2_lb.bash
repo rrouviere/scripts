@@ -2,7 +2,7 @@
 
 ## UNCHECKED Assumptions
 
-# 1. arping is installed
+# 1. arping & libcap commands are available
 # 2. IP is an IPv4 address (not duplicate address detection, easily fixable)
 # 5. If a large number of instances with the same TIMEOUT & TIMEOUT_COUNT are launched at exactly the same time, or TIMEOUT_COUNT=1, several LB might try to take the VIP at the same time. A random delay might be added to counteract this (unlikely) effect.
 # 6. We don't have flapping countermeasures (example: takeover if host is unreachable more than x% of y times)
